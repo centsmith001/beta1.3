@@ -38,29 +38,20 @@ Openvpn_Port1='110'
 #Provoxy_Port
 Privoxy_Port1='8080'
 Privoxy_Port2='8000'
-#Install ufw
+#Install ufw and enable ports
 apt-get install ufw -y
-#Configure ufw
-sed -i 's/DEFAULT_FORWARD_POLICY="DROP"/DEFAULT_FORWARD_POLICY="ACCEPT"/g' /etc/default/ufw
-cat <<ufw>> /etc/ufw/before.rules
-*nat
-:POSTROUTING ACCEPT [0:0]
--A POSTROUTING -s 10.8.0.0/16 -o ens3 -j MASQUERADE
-COMMIT
-ufw
- # Iptables Rule for OpenVPN server
- PUBLIC_INET="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
- IPCIDR='10.200.0.0/16'
- iptables -I FORWARD -s $IPCIDR -j ACCEPT
- iptables -t nat -A POSTROUTING -o $PUBLIC_INET -j MASQUERADE
- iptables -t nat -A POSTROUTING -s $IPCIDR -o $PUBLIC_INET -j MASQUERADE
-#enable ports
 ufw allow 110/tcp
 ufw allow 8080/tcp
 ufw allow 8000/tcp
 ufw allow OpenSSH
 ufw disable
 ufw enable
+ # Iptables Rule for OpenVPN server
+ PUBLIC_INET="$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)"
+ IPCIDR='10.200.0.0/16'
+ iptables -I FORWARD -s $IPCIDR -j ACCEPT
+ iptables -t nat -A POSTROUTING -o $PUBLIC_INET -j MASQUERADE
+ iptables -t nat -A POSTROUTING -s $IPCIDR -o $PUBLIC_INET -j MASQUERADE
 #Enable IP Forwarding
 sed -i '/net.ipv4.ip_forward.*/d' /etc/sysctl.conf
 echo >> /etc/sysctl.conf net.ipv4.ip_forward = 1
@@ -71,7 +62,11 @@ sysctl -p
 apt-get install openvpn -y
 mkdir /etc/openvpn/easy-rsa/keys
 cp -r /usr/share/easy-rsa /etc/openvpn/
-
+ # Some workaround for OpenVZ machines for "Startup error" openvpn service
+ if [[ "$(hostnamectl | grep -i Virtualization | awk '{print $2}' | head -n1)" == 'openvz' ]]; then
+ sed -i 's|LimitNPROC|#LimitNPROC|g' /lib/systemd/system/openvpn*
+ systemctl daemon-reload
+fi
 #Setup CA
 cat <<EOT3>> /usr/share/doc/openvpn/examples/sample-keys/ca.crt
 -----BEGIN CERTIFICATE-----
@@ -293,3 +288,4 @@ EOT2
 systemctl start openvpn@server
 systemctl enable openvpn@server
 systemctl status openvpn@server
+q
