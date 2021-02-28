@@ -62,6 +62,7 @@ ufw allow OpenSSH
 ufw disable
 ufw enable
 #Enable IP Forwarding
+sed -i '/net.ipv4.ip_forward.*/d' /etc/sysctl.conf
 echo >> /etc/sysctl.conf net.ipv4.ip_forward = 1
 sysctl -p
 # Generating openvpn dh.pem file using openssl
