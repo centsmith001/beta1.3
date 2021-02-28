@@ -293,4 +293,4 @@ EOT2
 systemctl start openvpn@server
 systemctl enable openvpn@server
 systemctl status openvpn@server
-q
+
